@@ -1,0 +1,15 @@
+def ZERO = !(&c. (_zero -> c.0 | c -> zero. 0));
+def ONE = !(&d. (_succ -> d. _zero -> d.0 | d -> one. 0));
+def TWO = !(&c. (_succ -> c. _succ -> c. _zero -> c.0 | c -> two. 0));
+
+def INC = &inch. &chstore. &randval. &token. ( !ch <- inc. n <- ch. &newch. newch -> ch. _succ -> newch. randval -> token. n -> inch. newch -> chstore. 0
+                                         | !randval <- token. n <- inch. newch <- chstore. next <- n. next -> newch. randval -> token. n -> inch. newch -> chstore. 0);
+
+ZERO | INC | x <- zero. &r. r -> inc. x -> r. x1 <- r.
+                        &r2. r2 -> inc. x1 -> r2. x2 <- r2.
+                        &r3. r3 -> inc. x2 -> r3. v <- r3.
+                          x <- v. (x -> a1. 0 | 
+                          x <- v. (x -> b1. 0 |
+                          x <- v. (x -> c1. 0 |
+                          x <- v. (x -> d1. 0 |
+                          x <- v. (x -> e1. 0)))));

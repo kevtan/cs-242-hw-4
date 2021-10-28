@@ -1,0 +1,58 @@
+
+# Note: _zero and _succ are globals, used to encode numbers
+# zero is a channel used by ZERO to provide fresh zeroes on demand, and
+# similarly for one, two.
+
+def ZERO = !(&c. (_zero -> c.0 | c -> zero. 0));
+def ONE = !(&d. (_succ -> d. _zero -> d.0 | d -> one. 0));
+def TWO = !(&c. (_succ -> c. _succ -> c. _zero -> c.0 | c -> two. 0));
+
+def COPY = 0; # Fill this in
+
+
+
+def OUTPUT_V1 = x <- v1. (x -> a1. 0 | 
+                x <- v1. (x -> b1. 0 |
+                x <- v1. (x -> c1. 0 |
+                x <- v1. (x -> d1. 0 |
+                x <- v1. (x -> e1. 0)))));
+
+def OUTPUT_V2 = x <- v2. (x -> a2. 0 | 
+                x <- v2. (x -> b2. 0 |
+                x <- v2. (x -> c2. 0 |
+                x <- v2. (x -> d2. 0 |
+                x <- v2. (x -> e2. 0)))));
+
+# Expected output: 
+#   _zero -> result1. 0
+# | _zero -> result2. 0
+# | ...
+ZERO | COPY | x <- zero. &r. r -> copy. x -> r. v1 <- r. v2 <- r. ( !(x <- v1. x -> result. 0) 
+                                                                  | !(x <- v2. x -> result2. 0));
+
+# Test that two can be copied
+# Expected output: 
+#   _succ -> a1. 0
+# | _succ -> a2. 0 
+# | _succ -> b1. 0
+# | _succ -> b2. 0
+# | _zero -> c1. 0
+# | _zero -> c2. 0
+# | ...
+TWO | COPY | x <- two. &r. r -> copy. x -> r. v1 <- r. v2 <- r. (OUTPUT_V1 | OUTPUT_V2);
+
+# Test that a number can be used even if the other isn't
+# Expected output: 
+#   _succ -> a1. 0
+# | _succ -> b1. 0 
+# | _zero -> c1. 0
+# | ...
+TWO | COPY | x <- two. &r. r -> copy. x -> r. v1 <- r. v2 <- r. (OUTPUT_V1);
+
+# The same as above, but for v2
+# Expected output: 
+#   _succ -> a2. 0
+# | _succ -> b2. 0
+# | _zero -> c2. 0
+# | ...
+TWO | COPY | x <- two. &r. r -> copy. x -> r. v1 <- r. v2 <- r. (OUTPUT_V2);
