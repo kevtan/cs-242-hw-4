@@ -1,25 +1,39 @@
-
 import sys, os, random
-from src.pi import Proc, Parallel, Choice, Nu, Replicate, Send, Receive, Equality, VarProc, pretty_print
+from src.pi import (
+    Proc,
+    Parallel,
+    Choice,
+    Nu,
+    Replicate,
+    Send,
+    Receive,
+    Equality,
+    VarProc,
+    pretty_print,
+)
 from typing import List, Dict, Iterable, Set, Tuple, Sequence
+
 
 def _parallels(p: Proc) -> Sequence[Proc]:
     if isinstance(p, Parallel):
         return p.ps
     return [p]
 
+
 def MkParallel(ps: Sequence[Proc]) -> Proc:
     procs = [y for x in ps for y in _parallels(x)]
     procs.sort()
-    if len(procs) == 1: return procs[0]
+    if len(procs) == 1:
+        return procs[0]
     return Parallel(procs)
+
 
 # Reciever
 def _receivers(p: Proc) -> Iterable[Tuple[Proc, Proc, List[Proc]]]:
     if isinstance(p, Parallel):
         for i, x in enumerate(p.ps):
             for (r, proc, reasons) in _receivers(x):
-                yield (r, MkParallel([*p.ps[:i], proc, *p.ps[i+1:]]), reasons)
+                yield (r, MkParallel([*p.ps[:i], proc, *p.ps[i + 1 :]]), reasons)
     elif isinstance(p, Choice):
         for i, x in enumerate(p.ps):
             for (r, proc, reasons) in _receivers(x):
@@ -61,48 +75,67 @@ def subst_pi(p: Proc, env: Dict[str, Proc]) -> Proc:
         print(type(p), p)
         assert False
 
+
 def _alpha_rename(avoid: Set[str], existing: str, body_free_vars: Set[str]) -> str:
-    # if the existing variable doesn't 
-    if existing not in avoid: return existing
+    # if the existing variable doesn't
+    if existing not in avoid:
+        return existing
     count = 0
     new_s = existing
     while new_s in avoid or new_s in body_free_vars:
         new_s = f"{existing}_{count}"
         count += 1
     return new_s
-            
 
-def _sub_v(y: str, x: str, v: str) -> str: return v if x == y else y
+
+def _sub_v(y: str, x: str, v: str) -> str:
+    return v if x == y else y
+
 
 _MAPPING: Dict[int, Proc] = {}
+
+
 def _set_mapping(p: Proc, old_p: Proc) -> Proc:
     if id(old_p) in _MAPPING:
         _MAPPING[id(p)] = _MAPPING[id(old_p)]
     else:
         _MAPPING[id(p)] = old_p
     return p
+
+
 # Replace x with v in p, avoiding capture
 def _sub(p: Proc, x: str, v: str) -> Proc:
     if isinstance(p, Parallel):
-        return _set_mapping(Parallel([_sub(px, x, v) for px in  p.ps]), p)
+        return _set_mapping(Parallel([_sub(px, x, v) for px in p.ps]), p)
     if isinstance(p, Choice):
-        return _set_mapping(Choice([_sub(px, x, v) for px in  p.ps]), p)
+        return _set_mapping(Choice([_sub(px, x, v) for px in p.ps]), p)
     if isinstance(p, Send):
-        return _set_mapping(Send(_sub_v(p.x, x, v), _sub_v(p.c, x, v), _sub(p.p, x, v)), p)
+        return _set_mapping(
+            Send(_sub_v(p.x, x, v), _sub_v(p.c, x, v), _sub(p.p, x, v)), p
+        )
     if isinstance(p, Receive):
         new_c = _sub_v(p.c, x, v)
-        if x == p.x: return _set_mapping(Receive(p.x, new_c, p.p), p) # don't descend, won't make any changes
+        if x == p.x:
+            return _set_mapping(
+                Receive(p.x, new_c, p.p), p
+            )  # don't descend, won't make any changes
         if v == p.x:
             new_s = _alpha_rename({v}, p.x, _fv(p.p))
-            return _sub(_set_mapping(Receive(new_s, new_c, _sub(p.p, p.x, new_s)), p), x, v)
+            return _sub(
+                _set_mapping(Receive(new_s, new_c, _sub(p.p, p.x, new_s)), p), x, v
+            )
         else:
             return _set_mapping(Receive(p.x, new_c, _sub(p.p, x, v)), p)
     if isinstance(p, Replicate):
         return _set_mapping(Replicate(_sub(p.p, x, v)), p)
     if isinstance(p, Equality):
-        return _set_mapping(Equality(_sub_v(p.s1, x, v), _sub_v(p.s2, x, v), _sub(p.p, x, v), p.is_eq), p)
+        return _set_mapping(
+            Equality(_sub_v(p.s1, x, v), _sub_v(p.s2, x, v), _sub(p.p, x, v), p.is_eq),
+            p,
+        )
     if isinstance(p, Nu):
-        if x == p.s: return p
+        if x == p.s:
+            return p
         if v == p.s:
             new_s = _alpha_rename({v}, p.s, _fv(p.p))
             return _sub(_set_mapping(Nu(new_s, _sub(p.p, p.s, new_s)), p), x, v)
@@ -114,14 +147,17 @@ def _sub(p: Proc, x: str, v: str) -> Proc:
     else:
         assert False
 
+
 def _fv(p: Proc) -> Set[str]:
     if isinstance(p, Parallel):
         f: Set[str] = set()
-        for x in p.ps: f.update(_fv(x))
+        for x in p.ps:
+            f.update(_fv(x))
         return f
     elif isinstance(p, Choice):
         f = set()
-        for x in p.ps: f.update(_fv(x))
+        for x in p.ps:
+            f.update(_fv(x))
         return f
     elif isinstance(p, Send):
         f = _fv(p.p)
@@ -150,7 +186,10 @@ def _fv(p: Proc) -> Set[str]:
         print(type(p), p)
         assert False
 
-def free_vars(p: Proc): return _fv(p)
+
+def free_vars(p: Proc):
+    return _fv(p)
+
 
 def _match2(r: Proc, s: Send) -> Iterable[Tuple[Proc, List[Proc]]]:
     if isinstance(r, Receive) and s.c == r.c:
@@ -163,14 +202,16 @@ def _match2(r: Proc, s: Send) -> Iterable[Tuple[Proc, List[Proc]]]:
     elif isinstance(r, Parallel):
         assert len(r.ps) > 0
         for x_prime, reasons in _match(r.ps[0], s):
-                yield MkParallel([x_prime, *r.ps[1:]]), reasons
-    else: return
+            yield MkParallel([x_prime, *r.ps[1:]]), reasons
+    else:
+        return
+
 
 def _match(r: Proc, p: Proc) -> Iterable[Tuple[Proc, List[Proc]]]:
     if isinstance(p, Parallel):
         for i, x in enumerate(p.ps):
             for x_prime, reasons in _match(r, x):
-                yield MkParallel([*p.ps[:i], x_prime, *p.ps[i+1:]]), reasons
+                yield MkParallel([*p.ps[:i], x_prime, *p.ps[i + 1 :]]), reasons
     if isinstance(p, Choice):
         for i, x in enumerate(p.ps):
             for x_prime, reasons in _match(r, x):
@@ -189,6 +230,7 @@ def _match(r: Proc, p: Proc) -> Iterable[Tuple[Proc, List[Proc]]]:
     else:
         return
 
+
 def _message(p: Parallel) -> Iterable[Tuple[Proc, List[Proc]]]:
     # print("_message", p)
     for (r, rest, reasons) in _receivers(p):
@@ -201,16 +243,17 @@ def _message(p: Parallel) -> Iterable[Tuple[Proc, List[Proc]]]:
 # Note: doesn't unfold replication unless some message matches
 def _step(p: Proc) -> Iterable[Tuple[Proc, List[Proc]]]:
     if isinstance(p, Parallel):
-        if len(p.ps) == 0: return
+        if len(p.ps) == 0:
+            return
         if len(p.ps) == 1:
             yield p.ps[0], []
             return
         # first, allow any sub-processes to take a step
         for i, x in enumerate(p.ps):
             for x_prime, r in _step(x):
-                yield MkParallel([*p.ps[:i], x_prime, *p.ps[i+1:]]), r
+                yield MkParallel([*p.ps[:i], x_prime, *p.ps[i + 1 :]]), r
         yield from _message(p)
-            
+
     elif isinstance(p, Choice):
         for x in p.ps:
             if isinstance(x, Equality):
@@ -221,11 +264,11 @@ def _step(p: Proc) -> Iterable[Tuple[Proc, List[Proc]]]:
                     yield x_prime, reasons + [p]
             # Note, the other cases (x <- c.0 + y <- c2.0, etc.) are handled by _message
     elif isinstance(p, Send):
-        return # send by itself can't do anything
+        return  # send by itself can't do anything
     elif isinstance(p, Receive):
-        return # receive by itself can't do anything
+        return  # receive by itself can't do anything
     elif isinstance(p, Replicate):
-        return # same
+        return  # same
     elif isinstance(p, Equality):
         if (p.s1 == p.s2) == p.is_eq:
             yield p.p, [p]
@@ -242,6 +285,7 @@ def _step(p: Proc) -> Iterable[Tuple[Proc, List[Proc]]]:
     else:
         print(type(p), p)
         assert False
+
 
 def _canonicalize(p: Proc):
     if isinstance(p, Parallel):
@@ -278,18 +322,31 @@ def _canonicalize(p: Proc):
     else:
         assert False
 
-def pretty_print_with_reasons(state: Proc, reasons: List[Proc], force_color: bool = False) -> str:
+
+def pretty_print_with_reasons(
+    state: Proc, reasons: List[Proc], force_color: bool = False
+) -> str:
     for r in reasons:
         r._changed = True
-    x = pretty_print(state, color = force_color or os.isatty(sys.stdout.fileno()))
+    x = pretty_print(state, color=force_color or os.isatty(sys.stdout.fileno()))
     for r in reasons:
         r._changed = False
     return x
 
+
 class LimitError(Exception):
     pass
 
-def eval_pi(p: Proc, width_limit = 1000, step_limit=1000, trace:bool = False, single:bool = False, force_color: bool = False, seed: int = 0) -> None:
+
+def eval_pi(
+    p: Proc,
+    width_limit=1000,
+    step_limit=1000,
+    trace: bool = False,
+    single: bool = False,
+    force_color: bool = False,
+    seed: int = 0,
+) -> None:
     random.seed(seed if seed != 0 else None)
     global _MAPPING
     finished = set()
@@ -306,7 +363,7 @@ def eval_pi(p: Proc, width_limit = 1000, step_limit=1000, trace:bool = False, si
                     raise LimitError("Too many parallel possibilities")
             if not has_next:
                 finished.add(_canonicalize(state))
-        
+
         if len(next_frontier) == 0:
             break
         if trace and not single:
@@ -316,24 +373,26 @@ def eval_pi(p: Proc, width_limit = 1000, step_limit=1000, trace:bool = False, si
             specific_state, reasons = random.choice(list(next_frontier.items()))
             if trace:
                 print("\nStep", step)
-                print(pretty_print_with_reasons(list(frontier)[0], reasons, force_color))
+                print(
+                    pretty_print_with_reasons(list(frontier)[0], reasons, force_color)
+                )
             frontier = set([specific_state])
         else:
             frontier = set(next_frontier.keys())
-    if step == step_limit-1:
+    if step == step_limit - 1:
         raise LimitError("Too many steps")
 
     l_finished = list(finished)
     l_finished.sort()
     if len(l_finished) == 1:
         print("Final state:")
-        print(pretty_print(l_finished[0], color = False))
+        print(pretty_print(l_finished[0], color=False))
     else:
         print("Final states:")
         for i, p in enumerate(l_finished):
             print(f"--- State {i} ---")
-            print(pretty_print(p, color = False))
-    print('\n')
+            print(pretty_print(p, color=False))
+    print("\n")
 
 
 # if isinstance(p, Parallel):
