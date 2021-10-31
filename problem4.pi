@@ -3,11 +3,28 @@
 # zero is a channel used by ZERO to provide fresh zeroes on demand, and
 # similarly for one, two.
 
-def ZERO = !(&c. (_zero -> c.0 | c -> zero. 0));
-def ONE = !(&d. (_succ -> d. _zero -> d.0 | d -> one. 0));
-def TWO = !(&c. (_succ -> c. _succ -> c. _zero -> c.0 | c -> two. 0));
+def ZERO = !(&c. (_zero -> c. 0 | c -> zero. 0));
+def ONE = !(&d. (_succ -> d. _zero -> d. 0 | d -> one. 0));
+def TWO = !(&c. (_succ -> c. _succ -> c. _zero -> c. 0 | c -> two. 0));
 
-def INC = 0; # Fill this in
+def INC = !&incremented. &partially_consumed_number_channel. (
+  (
+    connection <- inc
+    .n <- connection
+    .incremented -> connection
+    ._succ -> incremented
+    .n -> partially_consumed_number_channel
+    .0
+  )
+  | !(
+    partially_consumed_number <- partially_consumed_number_channel
+    .token <- partially_consumed_number
+    .(
+      [token = _succ]. _succ -> incremented. partially_consumed_number -> partially_consumed_number_channel. 0
+      + [token = _zero]. _zero -> incremented. 0
+    )
+  )
+);
 
 # Expected output: 
 #   _succ -> result. 0
