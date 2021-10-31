@@ -1,5 +1,8 @@
+#
+# Note: All process definitions must start with a capital letter. All channels
+# and values must start with a lower case letter or an underscore.
+#
 
-# Note: all process definitions must start with a capital letter. All channels/values start with a lower case letter
 # Forms of processes:
 def Nothing   = 0;
 def Parallel  = P | Q;
