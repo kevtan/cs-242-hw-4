@@ -1,6 +1,15 @@
 
 
-def VALUE = 0; # Fill this in
+def VALUE = &current_value_channel. (
+    &initial_value. initial_value -> current_value_channel. 0
+    | !(
+        current_value <- current_value_channel
+        .(
+            set_channel <- set. new_value <- set_channel. new_value -> current_value_channel. 0
+            + get_channel <- get. current_value -> get_channel. current_value -> current_value_channel. 0
+        )
+    )
+);
 
 
 
