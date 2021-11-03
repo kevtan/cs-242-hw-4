@@ -7,23 +7,16 @@ def ZERO = !(&c. (_zero -> c. 0 | c -> zero. 0));
 def ONE = !(&d. (_succ -> d. _zero -> d. 0 | d -> one. 0));
 def TWO = !(&c. (_succ -> c. _succ -> c. _zero -> c. 0 | c -> two. 0));
 
-def INC = !&incremented. &partially_consumed_number_channel. (
-  (
-    connection <- inc
-    .n <- connection
-    .incremented -> connection
-    ._succ -> incremented
-    .n -> partially_consumed_number_channel
-    .0
-  )
-  | !(
-    partially_consumed_number <- partially_consumed_number_channel
-    .token <- partially_consumed_number
-    .(
-      [token = _succ]. _succ -> incremented. partially_consumed_number -> partially_consumed_number_channel. 0
-      + [token = _zero]. _zero -> incremented. 0
-    )
-  )
+#
+# m: the incremented number
+# c: the bidirectional communication channel between the client and server
+# pcnc: the partially consumed number channel
+# pcn: the partially consumed number
+# t: a number token (either _succ or _zero)
+#
+def INC = !&m. &pcnc. (
+  (c <- inc. n <- c. m -> c. _succ -> m. n -> pcnc. 0)
+  | !(pcn <- pcnc. t <- pcn.([t = _succ]. _succ -> m. pcn -> pcnc. 0 + [t = _zero]. _zero -> m. 0))
 );
 
 # Expected output: 
