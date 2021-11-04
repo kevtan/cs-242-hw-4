@@ -7,13 +7,11 @@ def ZERO = !(&c. (_zero -> c.0 | c -> zero. 0));
 def ONE = !(&d. (_succ -> d. _zero -> d.0 | d -> one. 0));
 def TWO = !(&c. (_succ -> c. _succ -> c. _zero -> c.0 | c -> two. 0));
 
-def COPY = &partial_digest. &number1. &number2. &_number1. &_number2. &lock1. &lock2. (
-    client <- copy. number <- client. number -> partial_digest. number1 -> client. number2 -> client. 0
-    | !(number <- partial_digest. token <- number. token -> _number1. token -> _number2. number -> partial_digest. 0)
-    | !(&new_lock. old_lock <- lock1. token <- _number1. new_lock -> lock1. _ <- old_lock. token -> number1. _ -> new_lock. 0)
-    | !(&new_lock. old_lock <- lock2. token <- _number2. new_lock -> lock2. _ <- old_lock. token -> number2. _ -> new_lock. 0)
-    | &initial_lock. &_. initial_lock -> lock1. _ -> initial_lock. 0
-    | &initial_lock. &_. initial_lock -> lock2. _ -> initial_lock. 0
+def COPY = &a. &n1. &n2. &l1. &l2. (
+    c <- copy. n <- c. n -> a. n1 -> c. n2 -> c. 0
+    | !(pl1 <- l1. pl2 <- l2. n <- a. t <- n. &_pl1. &_pl2. _pl1 -> l1. _pl2 -> l2. n -> a. (_ <- pl1. t -> n1. _ -> _pl1. 0 | _ <- pl2. t -> n2. _ -> _pl2. 0))
+    | &ipl1. ipl1 -> l1. &_. _ -> ipl1. 0
+    | &ipl2. ipl2 -> l2. &_. _ -> ipl2. 0
 );
 
 def OUTPUT_V1 = x <- v1. (x -> a1. 0 | 
